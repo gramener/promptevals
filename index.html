@@ -33,6 +33,14 @@
     .sortable thead th {
       background: unset
     }
+
+    #revise-prompt ins {
+      color: var(--bs-success);
+    }
+
+    #revise-prompt del {
+      color: var(--bs-danger);
+    }
   </style>
 </head>
 
@@ -152,7 +160,8 @@
     <div class="row mb-3 align-items-start">
       <label for="criteria" class="col-md-3 col-form-label fw-bold">Criteria</label>
       <div class="col">
-        <textarea class="form-control" id="criteria" rows="3" placeholder="Enter evaluation criteria, one per line"></textarea>
+        <textarea class="form-control" id="criteria" rows="3" placeholder="Enter evaluation criteria, one per line">Generated output should cover all important points in the expected output.
+Generated output should not have any content not present in the expected output.</textarea>
       </div>
     </div>
 

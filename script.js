@@ -204,7 +204,7 @@ $generateOutput.addEventListener("click", async () => {
   // Generate outputs for each row
   for (const [index, row] of data.entries()) {
     drawTable();
-    $outputProgress.style.width = `${((index + 1) / data.length) * 100}%`;
+    $outputProgress.style.width = `${((index) / data.length) * 100}%`;
     if (generateCancel) break;
     try {
       for await (const { content } of llmStream({
@@ -222,6 +222,7 @@ $generateOutput.addEventListener("click", async () => {
       console.error("Error generating output:", error);
       row.generated = `Error generating output: ${error.message}`;
     }
+    $outputProgress.style.width = `${((index + 1) / data.length) * 100}%`;
   }
 
   // Hide loading indicator and enable generate, disable cancel, buttons.
@@ -474,8 +475,6 @@ if (savedCriteria) {
   $criteria.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
-// TODO: Just pick the wrong results for revision
-// TODO: Show the diffs in the prompts
 // TODO: Use the correct models
 // TODO: Graceful fetch error handling
 // TODO: Graceful cancellation / weird data error handling
