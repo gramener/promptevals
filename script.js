@@ -8,6 +8,7 @@ import { sumBy, sortBy } from "https://cdn.jsdelivr.net/npm/lodash-es@4/+esm";
 import { diffWords } from "https://cdn.jsdelivr.net/npm/diff@7/+esm";
 
 const $prompt = document.querySelector("#prompt");
+const $promptModel = document.querySelector("#prompt-model");
 const $outputModel = document.querySelector("#output-model");
 const $generatePrompt = document.querySelector("#generate-prompt");
 const $generateOutput = document.querySelector("#generate-output");
@@ -17,16 +18,21 @@ const $score = document.querySelector("#score");
 const $outputProgress = document.querySelector("#output-progress");
 const $data = document.querySelector("#data");
 const $embeddingSimilarity = document.querySelector("#embedding-similarity");
+const $evaluationModel = document.querySelector("#evaluation-model");
 const $criteria = document.querySelector("#criteria");
 const $evaluatePrompt = document.querySelector("#evaluate-prompt");
 const $evaluateCancel = document.querySelector("#evaluate-cancel");
 const $revisePrompt = document.querySelector("#revise-prompt");
+const $revisionModel = document.querySelector("#revision-model");
 const $revisedPrompt = document.querySelector("#revised-prompt");
 const $applyPrompt = document.querySelector("#apply-prompt");
+const $experiments = document.querySelector("#experiments");
 const $itemModal = document.querySelector("#item-modal");
 const modal = new bootstrap.Modal($itemModal);
 
 const shuffler = d3.shuffler(d3.randomLcg(12345));
+
+const experiments = {};
 let sample;
 let data;
 let criteria = [];
@@ -88,7 +94,7 @@ $generatePrompt.addEventListener("click", async () => {
     $generatePrompt.querySelector(".loading").classList.remove("d-none");
     $generatePrompt.disabled = true;
     for await (const { content, usage } of llmStream({
-      model: "gpt-4o-mini",
+      model: $promptModel.value,
       messages: generatePromptMessages(sample),
     })) {
       const promptMatch = content.match(/<PROMPT>([\s\S]*?)<\/PROMPT>/);
@@ -162,13 +168,11 @@ function drawTable() {
                     ${pc1(row.embeddingSimilarity)}
                   </td>`}
               ${criteria.length && firstRow[criteria[0]]
-                ? html`<td class="text-end">
-                    ${num2(row.embeddingSimilarity + sumBy(criteria, (c) => (row[c]?.success ? 1 : 0)))}
-                  </td>`
+                ? html`<td class="text-end">${num2(getScore(row))}</td>`
                 : null}
               ${criteria.map((c) =>
                 row[c]
-                  ? html`<td class="text-center" title="${row[c].explanation}">${row[c].success ? "✅" : "❌"}</td>`
+                  ? html`<td class="text-center" title="${row[c]?.explanation}">${row[c]?.success ? "✅" : "❌"}</td>`
                   : null
               )}
             </tr>
@@ -177,10 +181,7 @@ function drawTable() {
       </tbody>`,
     $outputTable
   );
-  const score = data.reduce(
-    (acc, row) => acc + (row.embeddingSimilarity + sumBy(criteria, (c) => (row[c]?.success ? 1 : 0))),
-    0
-  );
+  const score = sumBy(data, getScore);
   if (score) render(html`<div class="text-end">Score: ${num2(score)}</div>`, $score);
   $score.classList.toggle("d-none", !score);
 }
@@ -204,7 +205,7 @@ $generateOutput.addEventListener("click", async () => {
   // Generate outputs for each row
   for (const [index, row] of data.entries()) {
     drawTable();
-    $outputProgress.style.width = `${((index) / data.length) * 100}%`;
+    $outputProgress.style.width = `${(index / data.length) * 100}%`;
     if (generateCancel) break;
     try {
       for await (const { content } of llmStream({
@@ -271,7 +272,7 @@ $outputTable.addEventListener("click", (event) => {
               <td>${column}</td>
               <td>
                 ${typeof rowData[column] === "object"
-                  ? html`${rowData[column].success ? "✅" : "❌"} ${rowData[column].explanation}`
+                  ? html`${rowData[column]?.success ? "✅" : "❌"} ${rowData[column]?.explanation}`
                   : rowData[column]}
               </td>
             </tr>
@@ -355,7 +356,7 @@ $evaluatePrompt.addEventListener("click", async () => {
   for (const row of data) {
     if (evaluateCancel) break;
     for await (const { content, usage } of llmStream({
-      model: "gpt-4o-mini",
+      model: $evaluationModel.value,
       messages: [
         { role: "system", content: `Given the <EXPECTED> text and the <GENERATED> output, evaluate the criteria.` },
         {
@@ -377,6 +378,14 @@ $evaluatePrompt.addEventListener("click", async () => {
     }
   }
 
+  // Save result
+  experiments[$prompt.value] = {
+    score: sumBy(data, getScore),
+    data: JSON.parse(JSON.stringify(data)),
+    criteria: JSON.parse(JSON.stringify(criteria)),
+  };
+  drawExperiments();
+
   // Hide loading indicator and enable generate, disable cancel, buttons.
   $evaluatePrompt.querySelector(".loading").classList.add("d-none");
   $evaluateCancel.querySelector(".loading").classList.add("d-none");
@@ -385,6 +394,51 @@ $evaluatePrompt.addEventListener("click", async () => {
   evaluating = false;
   drawTable();
 });
+
+function drawExperiments() {
+  render(
+    html`
+      <table class="table">
+        <thead>
+          <tr>
+            <th class="text-end">Score</th>
+            <th>Prompt</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${Object.entries(experiments).map(([prompt, { score, criteria, data }]) => {
+            return html`<tr>
+              <td class="text-end" style="white-space: pre-wrap">${num2(score)}</td>
+              <td>
+                ${prompt}
+                <p class="mt-4"><strong>Criteria:</strong></p>
+                <div class="table-responsive">
+                  <table class="table table-sm">
+                    <tbody>
+                      ${criteria.map(
+                        (c) => html`
+                          <tr>
+                            <th scope="row">${c}</th>
+                            <td>
+                              ${data.map(
+                                (d) => html`<span title="${d[c]?.explanation}">${d[c]?.success ? "✅" : "❌"}</span>`
+                              )}
+                            </td>
+                          </tr>
+                        `
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </td>
+            </tr>`;
+          })}
+        </tbody>
+      </table>
+    `,
+    $experiments
+  );
+}
 
 // When cancel is clicked, trigger cancellation via cancel=true.
 // Show loading indicator to suggest cancellation is in progress and disable the button.
@@ -403,15 +457,15 @@ $revisePrompt.addEventListener("click", async () => {
   // Sort a copy of data by score = embeddingSimilarity + sum(criteria[].success)
   const sortedData = sortBy(data, (d) => d.embeddingSimilarity + sumBy(criteria, (term) => (d[term]?.success ? 1 : 0)));
   const examples = sortedData.slice(0, +document.querySelector("#examples").value);
-
+  $revisedPrompt.innerHTML = /* html */ `<div class="spinner-border" role="status"><span class="visually-hidden">Loading...</span></div>`;
   for await (const { content, usage } of llmStream({
-    model: "gpt-4o-mini",
+    model: $revisionModel.value,
     messages: [
       ...generatePromptMessages(sample),
       { role: "assistant", content: `<PROMPT>${$prompt.value}</PROMPT>` },
       {
         role: "user",
-        content: `Improve this prompt using feedback from these evals. Think step by step.
+        content: `Improve this prompt using feedback from these evals and try to improve similarity. Think step by step.
 
 ${examples
   .map(
@@ -424,7 +478,7 @@ ${criteria
   .map(
     (c) => `<CHECK>
   <CRITERION>${c}</CRITERION>
-  <RESULT>${d[c].success ? "YES" : "NO"} ${d[c].explanation}</RESULT>
+  <RESULT>${d[c]?.success ? "YES" : "NO"} ${d[c]?.explanation}</RESULT>
 </CHECK>`
   )
   .join("\n")}
@@ -440,7 +494,20 @@ ${criteria
   revisedPrompt = $revisedPrompt.textContent;
   const diffs = diffWords($prompt.value, revisedPrompt);
   $revisedPrompt.innerHTML = diffs
-    .map(({ added, removed, value }) => (added ? `<ins>${value}</ins>` : removed ? `<del>${value}</del>` : value))
+    .map(({ added, removed, value }) => {
+      const val = value.replace(
+        /[&<>'"]/g,
+        (char) =>
+          ({
+            "&": "&amp;",
+            "<": "&lt;",
+            ">": "&gt;",
+            "'": "&#39;",
+            '"': "&quot;",
+          }[char])
+      );
+      return added ? `<ins>${val}</ins>` : removed ? `<del>${val}</del>` : val;
+    })
     .join("");
 });
 
@@ -464,18 +531,16 @@ $embeddingSimilarity.addEventListener("input", (event) => {
   drawTable();
 });
 
-const savedInput = localStorage.getItem("promptEvalsInput");
-if (savedInput) {
-  $data.value = savedInput;
-  $data.dispatchEvent(new Event("input", { bubbles: true }));
-}
-const savedCriteria = localStorage.getItem("promptEvalsCriteria");
-if (savedCriteria) {
-  $criteria.value = savedCriteria;
-  $criteria.dispatchEvent(new Event("input", { bubbles: true }));
-}
+const getScore = (row) => row.embeddingSimilarity + sumBy(criteria, (c) => (row[c]?.success ? 1 : 0));
 
-// TODO: Use the correct models
+const savedInput = localStorage.getItem("promptEvalsInput");
+if (savedInput) $data.value = savedInput;
+$data.dispatchEvent(new Event("input", { bubbles: true }));
+
+const savedCriteria = localStorage.getItem("promptEvalsCriteria");
+if (savedCriteria) $criteria.value = savedCriteria;
+$criteria.dispatchEvent(new Event("input", { bubbles: true }));
+
 // TODO: Graceful fetch error handling
 // TODO: Graceful cancellation / weird data error handling
 // TODO: Refactor for readability

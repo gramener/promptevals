@@ -96,7 +96,7 @@
         </button>
       </div>
       <div class="col-md-2 mb-3">
-        <label for="sample" class="form-label fw-bold">Sample</label>
+        <label for="sample" class="form-label fw-bold">Sample size</label>
         <input class="form-control" type="number" id="sample" min="1" value="5" aria-label="Number of samples to generate prompt">
       </div>
       <div class="col-md-6 mb-3">
@@ -196,7 +196,7 @@ Generated output should not have any content not present in the expected output.
         </button>
       </div>
       <div class="col-md-2 mb-3">
-        <label for="examples" class="form-label fw-bold">Examples</label>
+        <label for="examples" class="form-label fw-bold"># Examples</label>
         <input class="form-control" type="number" id="examples" min="1" value="5" aria-label="Number of examples to revise prompt">
       </div>
       <div class="col-md-6 mb-3">
@@ -207,7 +207,7 @@ Generated output should not have any content not present in the expected output.
           <option value="chatgpt-4o-latest">ChatGPT 4o ($5)</option>
         </select>
       </div>
-      <div class="col-12 mb-3" id="revised-prompt" style="white-space: pre-wrap;"></div>
+      <div class="col-12 mb-3 border rounded py-3" id="revised-prompt" style="white-space: pre-wrap;"></div>
     </div>
 
     <div class="row">
@@ -216,6 +216,11 @@ Generated output should not have any content not present in the expected output.
           5. Apply this prompt
         </button>
       </div>
+    </div>
+
+    <div class="row"></div>
+      <h2 class="h4">Experiment history</h2>
+      <div class="table-responsive" id="experiments"></div>
     </div>
   </div>
 
