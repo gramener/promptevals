@@ -408,10 +408,10 @@ function drawExperiments() {
         <tbody>
           ${Object.entries(experiments).map(([prompt, { score, criteria, data }]) => {
             return html`<tr>
-              <td class="text-end" style="white-space: pre-wrap">${num2(score)}</td>
+              <td class="text-end">${num2(score)}</td>
               <td>
-                ${prompt}
-                <p class="mt-4"><strong>Criteria:</strong></p>
+                <p style="white-space: pre-wrap">${prompt}</p>
+                <p><strong>Criteria:</strong></p>
                 <div class="table-responsive">
                   <table class="table table-sm">
                     <tbody>
